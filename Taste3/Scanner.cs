@@ -241,8 +241,8 @@ public class Scanner {
 		start[61] = 17; 
 		start[60] = 13; 
 		start[62] = 14; 
-		start[58] = 15; 
-		start[59] = 16; 
+		start[44] = 15; 
+		start[58] = 16; 
 		start[Buffer.EOF] = -1;
 
 	}
@@ -358,14 +358,14 @@ public class Scanner {
 			case "true": t.kind = 5; break;
 			case "false": t.kind = 6; break;
 			case "void": t.kind = 9; break;
-			case "if": t.kind = 19; break;
-			case "else": t.kind = 20; break;
-			case "while": t.kind = 21; break;
-			case "read": t.kind = 22; break;
-			case "write": t.kind = 23; break;
-			case "program": t.kind = 24; break;
-			case "int": t.kind = 25; break;
-			case "bool": t.kind = 26; break;
+			case "if": t.kind = 18; break;
+			case "else": t.kind = 19; break;
+			case "while": t.kind = 20; break;
+			case "read": t.kind = 21; break;
+			case "write": t.kind = 22; break;
+			case "program": t.kind = 23; break;
+			case "int": t.kind = 24; break;
+			case "bool": t.kind = 25; break;
 			default: break;
 		}
 	}
@@ -430,9 +430,9 @@ public class Scanner {
 			case 16:
 				{t.kind = 28; break;}
 			case 17:
-				recEnd = pos; recKind = 18;
+				recEnd = pos; recKind = 26;
 				if (ch == '=') {AddCh(); goto case 12;}
-				else {t.kind = 18; break;}
+				else {t.kind = 26; break;}
 
 		}
 		t.val = new String(tval, 0, tlen);

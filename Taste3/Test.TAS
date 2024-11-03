@@ -1,8 +1,9 @@
 program Test {
-	int: i
+	i: int
 	
 	void Foo() {
-		int: a; b; max
+		a, b: int
+		max: int
 		read a 
 		read b
 		if a > b{
@@ -14,7 +15,7 @@ program Test {
 	}
 
 	void SumUp() {
-		int: sum
+		sum: int
 		sum = 0
 		while i > 0 { 
 		sum = sum + i 
