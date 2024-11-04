@@ -79,7 +79,7 @@ ProcDecl                 (. string name; Obj obj; int adr; .)
                             tab.OpenScope(); .)
   '(' ')'
   '{'                    (. gen.Emit(Op.ENTER, 0); adr = gen.pc - 2; .)
-  { '\n' | VarDecl | Stat }
+  { '\n' | VarDeclorAssign | Stat }
   '}'                    (. gen.Emit(Op.LEAVE); gen.Emit(Op.RET);
                             gen.Patch(adr, tab.topScope.nextAdr);
                             tab.CloseScope(); .).
@@ -101,15 +101,7 @@ SimExpr<out int type>    (. int type1; Op op; .)
 /*------------------------------------------------------------------------*/
 Stat                     (. int type; string name; Obj obj;
                             int adr, adr2, loopstart; .)
-= Ident<out name>        (. obj = tab.Find(name); .)
-  ( '='                  (. if (obj.kind != var) SemErr("cannot assign to procedure"); .)
-		Expr<out type> '\n'
-											   (. if (type != obj.type) SemErr("incompatible types");
-													  if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-													  else gen.Emit(Op.STO, obj.adr); .)
-	| '(' ')' '\n'          (. if (obj.kind != proc) SemErr("object is not a procedure");
-												  	gen.Emit(Op.CALL, obj.adr); .)
-	)
+= VarDeclorAssign
 
 | "if" 
 	['('] Expr<out type> [')'] (. if (type != boolean) SemErr("boolean type expected");
@@ -137,13 +129,13 @@ Stat                     (. int type; string name; Obj obj;
 	Expr<out type> '\n'     (. if (type != integer) SemErr("integer type expected");
 												    gen.Emit(Op.WRITE); .)
 
-| '{' { '\n' | Stat | VarDecl } '}' .
+| '{' { '\n' | Stat | VarDeclorAssign } '}' .
 /*------------------------------------------------------------------------*/
 Taste                    (. string name; .)
 = "program"
   Ident<out name>        (. tab.OpenScope(); .)
   '{'
-  {'\n' | VarDecl | ProcDecl }
+  {'\n' | VarDeclorAssign | ProcDecl }
   '}'                    (. tab.CloseScope();
                             if (gen.progStart == -1) SemErr("main function never defined");
                             .).
@@ -162,12 +154,33 @@ Type<out int type>
  | "bool"                (. type = boolean; .)
  ).
 /*------------------------------------------------------------------------*/
-VarDecl                  (. string name; int type; .)
-= Type<out type>
-  ':'
-  Ident<out name>        (. tab.NewObj(name, var, type); .)
-  { ';' Ident<out name>  (. tab.NewObj(name, var, type); .)
-  } '\n'.
+VarDecl<.List<string> names.>                  (. int type; .)
+= Type<out type>        (. foreach(var name in names){tab.NewObj(name, var, type);} .)
+.
+/*------------------------------------------------------------------------*/
+Assign<string name>				(. int type; Obj obj; .)
+=											(. obj = tab.Find(name); .)
+(	"="										
+											(. if (obj.kind != var) SemErr("cannot assign to procedure"); .)
+	Expr<out type>
+											   (. if (type != obj.type) SemErr("incompatible types");
+													  if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
+													  else gen.Emit(Op.STO, obj.adr); .)
 
+	| '(' ')'						         (. if (obj.kind != proc) SemErr("object is not a procedure");
+												  	gen.Emit(Op.CALL, obj.adr); .)
+
+).
+/*------------------------------------------------------------------------*/
+VarDeclorAssign			(. string name; Obj obj; List<string> names = new List<string>();.)
+= Ident<out name>		(. names.Add(name); .)
+{',' Ident<out name>	(. names.Add(name); .)
+}	
+  (
+  ':' VarDecl<names>
+  | 						
+	Assign<name>
+  )
+  '\n'.
 
 END Taste.

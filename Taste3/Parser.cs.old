@@ -1,5 +1,6 @@
 
 using System;
+using System.Collections.Generic;
 
 namespace Taste {
 
@@ -196,8 +197,8 @@ const int // types
 		while (StartOf(1)) {
 			if (la.kind == 13) {
 				Get();
-			} else if (la.kind == 25 || la.kind == 26) {
-				VarDecl();
+			} else if (la.kind == 1) {
+				VarDeclorAssign();
 			} else {
 				Stat();
 			}
@@ -208,17 +209,21 @@ const int // types
 		tab.CloseScope(); 
 	}
 
-	void VarDecl() {
-		string name; int type; 
-		Type(out type);
-		Expect(27);
+	void VarDeclorAssign() {
+		string name; Obj obj; List<string> names = new List<string>();
 		Ident(out name);
-		tab.NewObj(name, var, type); 
-		while (la.kind == 28) {
+		names.add(name); 
+		while (la.kind == 27) {
 			Get();
 			Ident(out name);
-			tab.NewObj(name, var, type); 
+			names.add(name); 
 		}
+		if (la.kind == 28) {
+			Get();
+			VarDecl(names);
+		} else if (la.kind == 10 || la.kind == 26) {
+			Assign(name);
+		} else SynErr(34);
 		Expect(13);
 	}
 
@@ -227,26 +232,10 @@ const int // types
 		int adr, adr2, loopstart; 
 		switch (la.kind) {
 		case 1: {
-			Ident(out name);
-			obj = tab.Find(name); 
-			if (la.kind == 18) {
-				Get();
-				if (obj.kind != var) SemErr("cannot assign to procedure"); 
-				Expr(out type);
-				Expect(13);
-				if (type != obj.type) SemErr("incompatible types");
-				if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
-				else gen.Emit(Op.STO, obj.adr); 
-			} else if (la.kind == 10) {
-				Get();
-				Expect(11);
-				Expect(13);
-				if (obj.kind != proc) SemErr("object is not a procedure");
-				gen.Emit(Op.CALL, obj.adr); 
-			} else SynErr(34);
+			VarDeclorAssign();
 			break;
 		}
-		case 19: {
+		case 18: {
 			Get();
 			if (la.kind == 10) {
 				Get();
@@ -261,7 +250,7 @@ const int // types
 				Get();
 			}
 			Stat();
-			if (la.kind == 20) {
+			if (la.kind == 19) {
 				Get();
 				gen.Emit(Op.JMP, 0); adr2 = gen.pc - 2;
 				gen.Patch(adr, gen.pc);
@@ -274,12 +263,16 @@ const int // types
 			gen.Patch(adr, gen.pc); 
 			break;
 		}
-		case 21: {
+		case 20: {
 			Get();
 			loopstart = gen.pc; 
-			Expect(10);
+			if (la.kind == 10) {
+				Get();
+			}
 			Expr(out type);
-			Expect(11);
+			if (la.kind == 11) {
+				Get();
+			}
 			if (type != boolean) SemErr("boolean type expected");
 			gen.Emit(Op.FJMP, 0); adr = gen.pc - 2; 
 			if (la.kind == 13) {
@@ -289,7 +282,7 @@ const int // types
 			gen.Emit(Op.JMP, loopstart); gen.Patch(adr, gen.pc); 
 			break;
 		}
-		case 22: {
+		case 21: {
 			Get();
 			Ident(out name);
 			Expect(13);
@@ -300,7 +293,7 @@ const int // types
 			else gen.Emit(Op.STO, obj.adr); 
 			break;
 		}
-		case 23: {
+		case 22: {
 			Get();
 			Expr(out type);
 			Expect(13);
@@ -316,7 +309,7 @@ const int // types
 				} else if (StartOf(2)) {
 					Stat();
 				} else {
-					VarDecl();
+					VarDeclorAssign();
 				}
 			}
 			Expect(14);
@@ -340,15 +333,15 @@ const int // types
 
 	void Taste() {
 		string name; 
-		Expect(24);
+		Expect(23);
 		Ident(out name);
 		tab.OpenScope(); 
 		Expect(12);
-		while (StartOf(3)) {
+		while (la.kind == 1 || la.kind == 9 || la.kind == 13) {
 			if (la.kind == 13) {
 				Get();
-			} else if (la.kind == 25 || la.kind == 26) {
-				VarDecl();
+			} else if (la.kind == 1) {
+				VarDeclorAssign();
 			} else {
 				ProcDecl();
 			}
@@ -361,13 +354,37 @@ const int // types
 
 	void Type(out int type) {
 		type = undef; 
-		if (la.kind == 25) {
+		if (la.kind == 24) {
 			Get();
 			type = integer; 
-		} else if (la.kind == 26) {
+		} else if (la.kind == 25) {
 			Get();
 			type = boolean; 
 		} else SynErr(36);
+	}
+
+	void VarDecl(List<string> names) {
+		int type; 
+		Type(out type);
+		foreach(var name in names){tab.NewObj(name, var, type);} 
+	}
+
+	void Assign(string name) {
+		int type; Obj obj; 
+		obj = tab.Find(name); 
+		if (la.kind == 26) {
+			Get();
+			if (obj.kind != var) SemErr("cannot assign to procedure"); 
+			Expr(out type);
+			if (type != obj.type) SemErr("incompatible types");
+			if (obj.level == 0) gen.Emit(Op.STOG, obj.adr);
+			else gen.Emit(Op.STO, obj.adr); 
+		} else if (la.kind == 10) {
+			Get();
+			Expect(11);
+			if (obj.kind != proc) SemErr("object is not a procedure");
+			gen.Emit(Op.CALL, obj.adr); 
+		} else SynErr(37);
 	}
 
 
@@ -383,9 +400,8 @@ const int // types
 	
 	static readonly bool[,] set = {
 		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x},
-		{x,T,x,x, x,x,x,x, x,x,x,x, T,T,x,x, x,x,x,T, x,T,T,T, x,T,T,x, x,x,x},
-		{x,T,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,x,T, x,T,T,T, x,x,x,x, x,x,x},
-		{x,x,x,x, x,x,x,x, x,T,x,x, x,T,x,x, x,x,x,x, x,x,x,x, x,T,T,x, x,x,x}
+		{x,T,x,x, x,x,x,x, x,x,x,x, T,T,x,x, x,x,T,x, T,T,T,x, x,x,x,x, x,x,x},
+		{x,T,x,x, x,x,x,x, x,x,x,x, T,x,x,x, x,x,T,x, T,T,T,x, x,x,x,x, x,x,x}
 
 	};
 } // end Parser
@@ -417,25 +433,26 @@ public class Errors {
 			case 15: s = "\"==\" expected"; break;
 			case 16: s = "\"<\" expected"; break;
 			case 17: s = "\">\" expected"; break;
-			case 18: s = "\"=\" expected"; break;
-			case 19: s = "\"if\" expected"; break;
-			case 20: s = "\"else\" expected"; break;
-			case 21: s = "\"while\" expected"; break;
-			case 22: s = "\"read\" expected"; break;
-			case 23: s = "\"write\" expected"; break;
-			case 24: s = "\"program\" expected"; break;
-			case 25: s = "\"int\" expected"; break;
-			case 26: s = "\"bool\" expected"; break;
-			case 27: s = "\":\" expected"; break;
-			case 28: s = "\";\" expected"; break;
+			case 18: s = "\"if\" expected"; break;
+			case 19: s = "\"else\" expected"; break;
+			case 20: s = "\"while\" expected"; break;
+			case 21: s = "\"read\" expected"; break;
+			case 22: s = "\"write\" expected"; break;
+			case 23: s = "\"program\" expected"; break;
+			case 24: s = "\"int\" expected"; break;
+			case 25: s = "\"bool\" expected"; break;
+			case 26: s = "\"=\" expected"; break;
+			case 27: s = "\",\" expected"; break;
+			case 28: s = "\":\" expected"; break;
 			case 29: s = "??? expected"; break;
 			case 30: s = "invalid AddOp"; break;
 			case 31: s = "invalid RelOp"; break;
 			case 32: s = "invalid Factor"; break;
 			case 33: s = "invalid MulOp"; break;
-			case 34: s = "invalid Stat"; break;
+			case 34: s = "invalid VarDeclorAssign"; break;
 			case 35: s = "invalid Stat"; break;
 			case 36: s = "invalid Type"; break;
+			case 37: s = "invalid Assign"; break;
 
 			default: s = "error " + n; break;
 		}
